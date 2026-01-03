@@ -1,0 +1,99 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Node {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  bins        Bin[]
+
+  @@index([name])
+  @@map("nodes")
+}
+
+model Bin {
+  id              String   @id @default(uuid())
+  nodeId          String
+  name            String
+  description     String?
+  checkInQrCode   String   @unique // QR code value for check-in
+  checkoutQrCode  String   @unique // QR code value for checkout
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  node            Node     @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  itemBins        ItemBin[]
+  transactions    Transaction[]
+
+  @@index([nodeId])
+  @@index([checkInQrCode])
+  @@index([checkoutQrCode])
+  @@map("bins")
+}
+
+model Item {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  type        String?   // e.g., "cable", "device", "card"
+  qrCode      String    @unique // QR code value for the item
+  imagePath   String?   // Path to uploaded image
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  itemBins    ItemBin[]
+  transactions Transaction[]
+
+  @@index([name])
+  @@index([type])
+  @@index([qrCode])
+  @@map("items")
+}
+
+model ItemBin {
+  id        String   @id @default(uuid())
+  itemId    String
+  binId     String
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  bin       Bin      @relation(fields: [binId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, binId])
+  @@index([itemId])
+  @@index([binId])
+  @@map("item_bins")
+}
+
+model Transaction {
+  id          String        @id @default(uuid())
+  itemId      String
+  binId       String
+  type        TransactionType
+  quantity    Int           @default(1)
+  createdAt   DateTime      @default(now())
+  item        Item          @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  bin         Bin           @relation(fields: [binId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+  @@index([binId])
+  @@index([createdAt])
+  @@index([type])
+  @@map("transactions")
+}
+
+enum TransactionType {
+  CHECK_IN
+  CHECK_OUT
+}
+
