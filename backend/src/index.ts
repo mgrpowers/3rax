@@ -8,6 +8,7 @@ import { itemRoutes } from './routes/itemRoutes';
 import { transactionRoutes } from './routes/transactionRoutes';
 import { searchRoutes } from './routes/searchRoutes';
 import { mtgRoutes } from './routes/mtgRoutes';
+import { qrRoutes } from './routes/qrRoutes';
 
 dotenv.config();
 
@@ -34,6 +35,7 @@ app.use('/api/items', itemRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/mtg', mtgRoutes);
+app.use('/api/qr', qrRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
