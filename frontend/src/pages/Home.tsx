@@ -8,9 +8,9 @@ export default function Home() {
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="bg-white p-4 rounded-lg shadow">
-            <h2 className="font-semibold text-lg mb-2">Quick Search</h2>
+            <h2 className="font-semibold text-lg mb-2">Search Items</h2>
             <p className="text-gray-600 text-sm mb-4">Search for items by name or description</p>
-            <a href="/search" className="text-blue-600 hover:text-blue-800">Go to Search →</a>
+            <a href="/items" className="text-blue-600 hover:text-blue-800">Go to Items →</a>
           </div>
           <div className="bg-white p-4 rounded-lg shadow">
             <h2 className="font-semibold text-lg mb-2">Scanner</h2>

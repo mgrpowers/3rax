@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { itemApi, Item } from '../services/api';
-import QRCodeScanner from '../components/QRCodeScanner';
+import ScannerInput from '../components/ScannerInput';
 import QRCodeDisplay from '../components/QRCodeDisplay';
 
 export default function ItemDetail() {
@@ -9,8 +9,7 @@ export default function ItemDetail() {
   const navigate = useNavigate();
   const [item, setItem] = useState<Item | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showScanner, setShowScanner] = useState(false);
-  const [showQR, setShowQR] = useState(false);
+  const [showScannerInput, setShowScannerInput] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -35,10 +34,10 @@ export default function ItemDetail() {
     if (!id) return;
     try {
       await itemApi.registerQRCode(id, qrCode);
-      setShowScanner(false);
+      setShowScannerInput(false);
       loadItem();
       alert('QR code registered successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error registering QR code:', error);
       alert('Failed to register QR code');
     }
@@ -47,9 +46,12 @@ export default function ItemDetail() {
   const handlePrint = async () => {
     if (!id) return;
     try {
-      await itemApi.printQRCode(id, {});
+      await itemApi.printQRCode(id, {
+        printerName: 'EPSON5D4FE9',
+        labelSize: 'avery5267',
+      });
       alert('Print job sent');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error printing:', error);
       alert('Failed to print');
     }
@@ -65,29 +67,39 @@ export default function ItemDetail() {
 
   return (
     <div className="px-4 py-6 sm:px-0">
-      <button
-        onClick={() => navigate('/items')}
-        className="text-blue-600 hover:text-blue-800 mb-4"
-      >
-        ← Back to Items
-      </button>
+      <div className="flex gap-4 items-center mb-4">
+        <button
+          onClick={() => navigate('/items')}
+          className="text-blue-600 hover:text-blue-800"
+        >
+          ← Back to Items
+        </button>
+        <button
+          onClick={() => navigate('/items/new')}
+          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+        >
+          Add Another Item
+        </button>
+      </div>
 
       <div className="bg-white rounded-lg shadow p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            {item.imagePath && (
+        <div className="flex gap-6">
+          {item.imagePath && (
+            <div className="flex-shrink-0">
               <img
-                src={`http://localhost:3001${item.imagePath}`}
+                src={item.imagePath}
                 alt={item.name}
-                className="w-full rounded-lg mb-4"
+                className="w-48 h-48 object-cover rounded-lg"
               />
+            </div>
+          )}
+          <div className="flex-grow">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">{item.name}</h1>
+            {item.description && (
+              <p className="text-gray-600 mb-4">{item.description}</p>
             )}
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">{item.name}</h1>
-            {item.description && <p className="text-gray-600 mb-4">{item.description}</p>}
             {item.type && (
-              <span className="inline-block bg-blue-100 text-blue-800 text-sm px-3 py-1 rounded mb-4">
+              <span className="inline-block px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm">
                 {item.type}
               </span>
             )}
@@ -99,16 +111,10 @@ export default function ItemDetail() {
                 </label>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setShowScanner(true)}
-                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+                    onClick={() => setShowScannerInput(true)}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
                   >
-                    Register Custom QR
-                  </button>
-                  <button
-                    onClick={() => setShowQR(!showQR)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    {showQR ? 'Hide' : 'Show'} QR Code
+                    Register Custom QR Code
                   </button>
                   <button
                     onClick={handlePrint}
@@ -117,7 +123,7 @@ export default function ItemDetail() {
                     Print Label
                   </button>
                 </div>
-                {showQR && (
+                {item.qrCode && (
                   <div className="mt-4">
                     <QRCodeDisplay itemId={item.id} />
                   </div>
@@ -143,13 +149,12 @@ export default function ItemDetail() {
         )}
       </div>
 
-      {showScanner && (
-        <QRCodeScanner
+      {showScannerInput && (
+        <ScannerInput
           onScan={handleRegisterQR}
-          onClose={() => setShowScanner(false)}
+          onClose={() => setShowScannerInput(false)}
         />
       )}
     </div>
   );
 }
-

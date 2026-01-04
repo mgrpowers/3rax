@@ -11,15 +11,31 @@ export const transactionController = {
         return res.status(400).json({ error: 'Bin QR code and item QR code are required' });
       }
 
-      // Find bin by check-in QR code
-      const bin = await prisma.bin.findFirst({
-        where: {
-          checkInQrCode: binQrCode,
-        },
-        include: {
-          node: true,
-        },
-      });
+      // Try to parse as JSON (for bin QR codes with JSON format)
+      let binId: string | null = null;
+      try {
+        const parsed = JSON.parse(binQrCode);
+        if (parsed.type === 'bin' && parsed.id) {
+          binId = parsed.id;
+        }
+      } catch (e) {
+        // Not JSON, will look up by QR code value
+      }
+
+      // Find bin by ID (if parsed from JSON) or by check-in QR code
+      const bin = binId
+        ? await prisma.bin.findUnique({
+            where: { id: binId },
+            include: { node: true },
+          })
+        : await prisma.bin.findFirst({
+            where: {
+              checkInQrCode: binQrCode,
+            },
+            include: {
+              node: true,
+            },
+          });
 
       if (!bin) {
         return res.status(404).json({ error: 'Bin not found' });
@@ -121,15 +137,31 @@ export const transactionController = {
         return res.status(400).json({ error: 'Bin QR code and item QR code are required' });
       }
 
-      // Find bin by checkout QR code
-      const bin = await prisma.bin.findFirst({
-        where: {
-          checkoutQrCode: binQrCode,
-        },
-        include: {
-          node: true,
-        },
-      });
+      // Try to parse as JSON (for bin QR codes with JSON format)
+      let binId: string | null = null;
+      try {
+        const parsed = JSON.parse(binQrCode);
+        if (parsed.type === 'bin' && parsed.id) {
+          binId = parsed.id;
+        }
+      } catch (e) {
+        // Not JSON, will look up by QR code value
+      }
+
+      // Find bin by ID (if parsed from JSON) or by checkout QR code
+      const bin = binId
+        ? await prisma.bin.findUnique({
+            where: { id: binId },
+            include: { node: true },
+          })
+        : await prisma.bin.findFirst({
+            where: {
+              checkoutQrCode: binQrCode,
+            },
+            include: {
+              node: true,
+            },
+          });
 
       if (!bin) {
         return res.status(404).json({ error: 'Bin not found' });

@@ -9,7 +9,7 @@ This guide covers deploying the inventory management system on a Docker Swarm cl
 - Docker Swarm initialized
 - Network connectivity between Pis
 
-## Initial Setup
+## Initial Setupz
 
 ### 1. Prepare Raspberry Pis
 
@@ -243,7 +243,7 @@ Adjust resource limits in `docker-compose.yml`:
 deploy:
   resources:
     limits:
-      cpus: '0.5'
+      cpus: "0.5"
       memory: 256M
 ```
 
@@ -295,4 +295,3 @@ docker volume prune
 6. Set up health check monitoring
 7. Use persistent volumes for critical data
 8. Implement disaster recovery procedures
-

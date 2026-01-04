@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { nodeApi, Node } from '../services/api';
+import { Link } from 'react-router-dom';
 
 export default function Nodes() {
   const [nodes, setNodes] = useState<Node[]>([]);
@@ -27,7 +28,15 @@ export default function Nodes() {
 
   return (
     <div className="px-4 py-6 sm:px-0">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Nodes</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Nodes</h1>
+        <Link
+          to="/nodes/new"
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          Add Node
+        </Link>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {nodes.map((node) => (

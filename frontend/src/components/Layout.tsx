@@ -9,7 +9,6 @@ export default function Layout({ children }: LayoutProps) {
 
   const navItems = [
     { path: '/', label: 'Home' },
-    { path: '/search', label: 'Search' },
     { path: '/items', label: 'Items' },
     { path: '/bins', label: 'Bins' },
     { path: '/nodes', label: 'Nodes' },
