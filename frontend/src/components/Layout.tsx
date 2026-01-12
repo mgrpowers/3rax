@@ -1,4 +1,5 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useState, useRef } from 'react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -6,14 +7,37 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [scannerValue, setScannerValue] = useState('');
+  const scannerInputRef = useRef<HTMLInputElement>(null);
 
   const navItems = [
-    { path: '/', label: 'Home' },
-    { path: '/items', label: 'Items' },
     { path: '/bins', label: 'Bins' },
     { path: '/nodes', label: 'Nodes' },
-    { path: '/scanner', label: 'Scanner' },
   ];
+
+  const handleScannerKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && scannerValue.trim()) {
+      e.preventDefault();
+      const qrCode = scannerValue.trim();
+      setScannerValue('');
+
+      // Try to parse as JSON (for bin QR codes)
+      try {
+        const parsed = JSON.parse(qrCode);
+        if (parsed.type === 'bin' && parsed.id && parsed.operation) {
+          // This is a bin QR code - navigate to scanner with the bin QR code
+          navigate('/scanner', { state: { binQrCode: qrCode, operation: parsed.operation } });
+          return;
+        }
+      } catch (e) {
+        // Not JSON, might be a plain QR code
+      }
+
+      // If not a bin QR code, just clear it
+      setScannerValue('');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -22,7 +46,9 @@ export default function Layout({ children }: LayoutProps) {
           <div className="flex justify-between h-16">
             <div className="flex">
               <div className="flex-shrink-0 flex items-center">
-                <h1 className="text-xl font-bold text-gray-900">Inventory System</h1>
+                <Link to="/" className="text-xl font-bold text-gray-900 hover:text-gray-700 cursor-pointer">
+                  Inventory System
+                </Link>
               </div>
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
                 {navItems.map((item) => (
@@ -39,6 +65,17 @@ export default function Layout({ children }: LayoutProps) {
                   </Link>
                 ))}
               </div>
+            </div>
+            <div className="flex items-center">
+              <input
+                ref={scannerInputRef}
+                type="text"
+                value={scannerValue}
+                onChange={(e) => setScannerValue(e.target.value)}
+                onKeyDown={handleScannerKeyDown}
+                placeholder="Scan QR code..."
+                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 w-48"
+              />
             </div>
           </div>
         </div>

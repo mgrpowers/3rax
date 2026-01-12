@@ -10,6 +10,14 @@ export default function ItemDetail() {
   const [item, setItem] = useState<Item | null>(null);
   const [loading, setLoading] = useState(true);
   const [showScannerInput, setShowScannerInput] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    description: '',
+    type: '',
+    image: null as File | null,
+  });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -21,10 +29,16 @@ export default function ItemDetail() {
     try {
       const response = await itemApi.getById(id!);
       setItem(response.data);
+      setEditForm({
+        name: response.data.name,
+        description: response.data.description || '',
+        type: response.data.type || '',
+        image: null,
+      });
     } catch (error) {
       console.error('Error loading item:', error);
       alert('Failed to load item');
-      navigate('/items');
+      navigate('/');
     } finally {
       setLoading(false);
     }
@@ -55,6 +69,46 @@ export default function ItemDetail() {
       console.error('Error printing:', error);
       alert('Failed to print');
     }
+  };
+
+  const handleSave = async () => {
+    if (!id) return;
+    if (!editForm.name.trim()) {
+      alert('Name is required');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const formData = new FormData();
+      formData.append('name', editForm.name);
+      if (editForm.description) formData.append('description', editForm.description);
+      if (editForm.type) formData.append('type', editForm.type);
+      if (editForm.image) formData.append('image', editForm.image);
+
+      await itemApi.update(id, formData);
+      setIsEditing(false);
+      loadItem();
+      alert('Item updated successfully');
+    } catch (error: any) {
+      console.error('Error updating item:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to update item';
+      alert(`Failed to update item: ${errorMessage}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    if (item) {
+      setEditForm({
+        name: item.name,
+        description: item.description || '',
+        type: item.type || '',
+        image: null,
+      });
+    }
+    setIsEditing(false);
   };
 
   if (loading) {
@@ -94,15 +148,96 @@ export default function ItemDetail() {
             </div>
           )}
           <div className="flex-grow">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">{item.name}</h1>
-            {item.description && (
-              <p className="text-gray-600 mb-4">{item.description}</p>
-            )}
-            {item.type && (
-              <span className="inline-block px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm">
-                {item.type}
-              </span>
-            )}
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex-1">
+                {isEditing ? (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={editForm.name}
+                        onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Description
+                      </label>
+                      <textarea
+                        value={editForm.description}
+                        onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                        rows={3}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Type
+                      </label>
+                      <input
+                        type="text"
+                        value={editForm.type}
+                        onChange={(e) => setEditForm({ ...editForm, type: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Image
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setEditForm({ ...editForm, image: e.target.files?.[0] || null })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                      />
+                      {item.imagePath && (
+                        <p className="text-sm text-gray-500 mt-1">Current image will be replaced</p>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleSave}
+                        disabled={saving}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {saving ? 'Saving...' : 'Save'}
+                      </button>
+                      <button
+                        onClick={handleCancel}
+                        disabled={saving}
+                        className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <h1 className="text-3xl font-bold text-gray-900 mb-2">{item.name}</h1>
+                    {item.description && <p className="text-gray-600 mb-4">{item.description}</p>}
+                    {item.type && (
+                      <span className="inline-block px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm">
+                        {item.type}
+                      </span>
+                    )}
+                    <div className="mt-4">
+                      <button
+                        onClick={() => setIsEditing(true)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      >
+                        Edit Item
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
 
             <div className="mt-6 space-y-4">
               <div>

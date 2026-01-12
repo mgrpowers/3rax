@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { transactionApi } from '../services/api';
 import QRCodeScanner from '../components/QRCodeScanner';
 
 type ScanStep = 'bin' | 'item' | 'complete';
 
 export default function Scanner() {
+  const location = useLocation();
   const [step, setStep] = useState<ScanStep>('bin');
   const [operation, setOperation] = useState<'checkin' | 'checkout' | null>(null);
   const [binQrCode, setBinQrCode] = useState<string | null>(null);
@@ -12,6 +14,16 @@ export default function Scanner() {
   const [loading, setLoading] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Check if we have a bin QR code from navigation state
+  useEffect(() => {
+    const state = location.state as { binQrCode?: string; operation?: string } | null;
+    if (state?.binQrCode && state?.operation) {
+      setBinQrCode(state.binQrCode);
+      setOperation(state.operation as 'checkin' | 'checkout');
+      setStep('item');
+    }
+  }, [location.state]);
 
   // Auto-focus input for manual scanner when in bin or item step
   useEffect(() => {

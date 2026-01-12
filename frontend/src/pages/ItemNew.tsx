@@ -153,7 +153,7 @@ export default function ItemNew() {
   return (
     <div className="px-4 py-6 sm:px-0">
       <button
-        onClick={() => navigate('/items')}
+        onClick={() => navigate('/')}
         className="text-blue-600 hover:text-blue-800 mb-4"
       >
         ← Back to Items
@@ -306,7 +306,7 @@ export default function ItemNew() {
           <div className="flex gap-4 pt-4">
             <button
               type="button"
-              onClick={() => navigate('/items')}
+              onClick={() => navigate('/')}
               className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
             >
               Cancel

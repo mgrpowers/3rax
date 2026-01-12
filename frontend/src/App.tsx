@@ -1,6 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
-import Items from "./pages/Items";
 import ItemDetail from "./pages/ItemDetail";
 import ItemNew from "./pages/ItemNew";
 import Bins from "./pages/Bins";
@@ -17,7 +16,6 @@ function App() {
       <Layout>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/items" element={<Items />} />
           <Route path="/items/new" element={<ItemNew />} />
           <Route path="/items/:id" element={<ItemDetail />} />
           <Route path="/bins" element={<Bins />} />
