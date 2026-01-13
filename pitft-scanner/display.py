@@ -75,6 +75,16 @@ def display_text(text, width=135, height=240):
                     dc_pin = digitalio.DigitalInOut(dc_pin_id)
                     reset_pin = digitalio.DigitalInOut(rst_pin_id)
                     
+                    # Configure reset pin as output for hardware reset
+                    reset_pin.switch_to_output()
+                    
+                    # Hardware reset - pulse reset pin low then high
+                    print("[DEBUG] Performing hardware reset...", file=sys.stderr)
+                    reset_pin.value = False
+                    time.sleep(0.01)
+                    reset_pin.value = True
+                    time.sleep(0.05)
+                    
                     # Try to control backlight (GPIO 18)
                     backlight_pin = None
                     try:
@@ -90,6 +100,7 @@ def display_text(text, width=135, height=240):
                     print("[DEBUG] Creating SPI interface...", file=sys.stderr)
                     spi_interface = board.SPI()
                     print("[DEBUG] Creating ST7789 display...", file=sys.stderr)
+                    
                     device = adafruit_st7789.ST7789(
                         spi_interface,
                         cs=cs_pin,
@@ -100,6 +111,21 @@ def display_text(text, width=135, height=240):
                         rotation=0
                     )
                     print(f"[DEBUG] Display initialized successfully with CS={cs_candidate}", file=sys.stderr)
+                    
+                    # Send a test pattern immediately to verify communication
+                    print("[DEBUG] Sending test pattern (bright red screen)...", file=sys.stderr)
+                    test_img = Image.new('RGB', (width, height), color='red')
+                    device.image(test_img)
+                    time.sleep(0.2)
+                    print("[DEBUG] Test pattern sent - you should see RED screen", file=sys.stderr)
+                    
+                    # Try to wake display if it's in sleep mode
+                    try:
+                        # Some displays need explicit wake command
+                        device._write(0x29)  # Display ON command
+                        time.sleep(0.1)
+                    except:
+                        pass
                     # Success, break out
                     last_error = None
                     break
@@ -224,13 +250,28 @@ def display_text(text, width=135, height=240):
             if y > height - 20:
                 break
         
+        print(f"[DEBUG] Sending image to display ({width}x{height})...", file=sys.stderr)
+        print(f"[DEBUG] Image mode: {img.mode}, size: {img.size}", file=sys.stderr)
+        
         if LUMA_AVAILABLE:
             device.display(img)
+            print("[DEBUG] Image sent via luma.lcd library", file=sys.stderr)
         elif ADAFRUIT_AVAILABLE:
+            # Ensure image is in RGB mode
+            if img.mode != 'RGB':
+                print(f"[DEBUG] Converting image from {img.mode} to RGB", file=sys.stderr)
+                img = img.convert('RGB')
             device.image(img)
+            print("[DEBUG] Image sent via Adafruit library", file=sys.stderr)
+            # Force display refresh
+            try:
+                device.refresh()
+            except:
+                pass
         
         # Small delay to ensure display updates and stays visible
-        time.sleep(0.1)
+        time.sleep(0.3)
+        print("[DEBUG] Display update complete", file=sys.stderr)
         
     except Exception as e:
         print(f"Display error: {e}", file=sys.stderr)
