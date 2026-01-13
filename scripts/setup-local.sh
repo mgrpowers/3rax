@@ -6,27 +6,48 @@ set -e
 
 echo "Setting up local development environment..."
 
-# Check if Docker is running
-if ! docker info > /dev/null 2>&1; then
-    echo "⚠️  Docker is not running. Please start Docker Desktop or Docker daemon."
-    echo "   Then run this script again."
+# Find docker command (check common locations)
+if command -v docker > /dev/null 2>&1; then
+    DOCKER_CMD="docker"
+elif [ -x /usr/bin/docker ]; then
+    DOCKER_CMD="/usr/bin/docker"
+else
+    echo "⚠️  Docker not found. Please install Docker."
     exit 1
+fi
+
+# Check if Docker is running
+# Try without sudo first, then with sudo (for Raspberry Pi)
+if ! $DOCKER_CMD ps > /dev/null 2>&1; then
+    if sudo $DOCKER_CMD ps > /dev/null 2>&1; then
+        echo "⚠️  Docker requires sudo. Adding user to docker group is recommended:"
+        echo "   sudo usermod -aG docker $USER"
+        echo "   (Then log out and back in)"
+        echo ""
+        echo "Continuing with sudo..."
+        DOCKER_CMD="sudo $DOCKER_CMD"
+    else
+        echo "⚠️  Docker is not running. Please start Docker:"
+        echo "   sudo systemctl start docker  (systemd)"
+        echo "   OR start Docker Desktop"
+        exit 1
+    fi
 fi
 
 # Start PostgreSQL container
 echo "Starting PostgreSQL container..."
-docker run --name inventory-postgres \
+$DOCKER_CMD run --name inventory-postgres \
     -e POSTGRES_USER=inventory \
     -e POSTGRES_PASSWORD=inventory \
     -e POSTGRES_DB=inventory \
     -p 5432:5432 \
-    -d postgres:16-alpine 2>/dev/null || docker start inventory-postgres
+    -d postgres:16-alpine 2>/dev/null || $DOCKER_CMD start inventory-postgres
 
 echo "Waiting for PostgreSQL to be ready..."
 sleep 5
 
 # Check if PostgreSQL is ready
-until docker exec inventory-postgres pg_isready -U inventory > /dev/null 2>&1; do
+until $DOCKER_CMD exec inventory-postgres pg_isready -U inventory > /dev/null 2>&1; do
     echo "Waiting for PostgreSQL..."
     sleep 2
 done

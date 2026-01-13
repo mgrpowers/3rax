@@ -18,20 +18,19 @@ This service runs on a Raspberry Pi with a Mini PiTFT (135x240) display and USB 
 
 ### 1. Install Display Library
 
+For systems with externally-managed-environment protection, use the `--break-system-packages` flag:
+
 ```bash
-sudo pip3 install luma.oled
+sudo pip3 install --break-system-packages luma.lcd Pillow
 ```
 
-For the ST7789 display chip used by Mini PiTFT:
+Alternatively, install to user directory (no sudo required):
+
 ```bash
-sudo pip3 install luma.lcd
+pip3 install --user luma.lcd Pillow
 ```
 
-Or use the Adafruit CircuitPython library:
-```bash
-sudo pip3 install adafruit-circuitpython-st7789
-sudo pip3 install Pillow
-```
+Note: If using `--user`, you may need to add `~/.local/bin` to your PATH.
 
 ### 2. Install Node.js Dependencies
 
@@ -59,6 +58,7 @@ npm start
 ```
 
 Or for development with auto-reload:
+
 ```bash
 npm run dev
 ```
@@ -75,4 +75,3 @@ npm run dev
 - "HDMI cable scanned... waiting for bin scan"
 - "Cable checked back into bin x"
 - "Error with bin" or "Cannot find item"
-
