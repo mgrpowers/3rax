@@ -87,12 +87,62 @@ npm install
 
 cd ..
 
+# Setup pitft-scanner (optional - for Raspberry Pi with Mini PiTFT)
+if [ -d "pitft-scanner" ]; then
+    echo ""
+    echo "Setting up pitft-scanner..."
+    cd pitft-scanner
+    
+    # Install Python dependencies for Mini PiTFT display
+    echo "Installing Python dependencies for Mini PiTFT..."
+    if command -v pip3 > /dev/null 2>&1; then
+        # Try without --break-system-packages first, then with it
+        if pip3 install --user luma.lcd Pillow 2>/dev/null; then
+            echo "✅ Python dependencies installed (user directory)"
+        elif sudo pip3 install --break-system-packages luma.lcd Pillow 2>/dev/null; then
+            echo "✅ Python dependencies installed (system-wide)"
+        else
+            echo "⚠️  Warning: Could not install Python dependencies"
+            echo "   You may need to install manually:"
+            echo "   pip3 install --user luma.lcd Pillow"
+            echo "   OR: sudo pip3 install --break-system-packages luma.lcd Pillow"
+        fi
+    else
+        echo "⚠️  Warning: pip3 not found. Python dependencies not installed."
+    fi
+    
+    # Install Node.js dependencies
+    echo "Installing Node.js dependencies for pitft-scanner..."
+    npm install
+    
+    # Create .env file if it doesn't exist
+    if [ ! -f .env ]; then
+        cat > .env << EOF
+API_URL=http://localhost:3001
+DISPLAY_TYPE=st7789
+DISPLAY_WIDTH=135
+DISPLAY_HEIGHT=240
+EOF
+        echo "Created pitft-scanner/.env file"
+        echo "⚠️  Note: Update API_URL in pitft-scanner/.env with your backend URL"
+    fi
+    
+    cd ..
+    echo "✅ pitft-scanner setup complete!"
+fi
+
+echo ""
 echo "✅ Setup complete!"
 echo ""
 echo "To start the application:"
 echo "  1. Start backend: cd backend && npm run dev"
 echo "  2. Start frontend: cd frontend && npm run dev"
 echo ""
+if [ -d "pitft-scanner" ]; then
+    echo "To start pitft-scanner (on Raspberry Pi with Mini PiTFT):"
+    echo "  cd pitft-scanner && npm start"
+    echo ""
+fi
 echo "Backend will run on http://localhost:3001"
 echo "Frontend will run on http://localhost:3000"
 
