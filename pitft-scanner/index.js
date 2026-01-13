@@ -25,26 +25,42 @@ async function displayMessage(text) {
   const displayScript = join(__dirname, "display.py");
 
   return new Promise((resolve) => {
+    // Always log to console for debugging
+    console.log(`[DISPLAY] ${text}`);
+    
     if (existsSync(displayScript)) {
       // Pass text as argument (will be escaped by spawn)
       const python = spawn("python3", [displayScript, text]);
       let errorOutput = "";
+      let stdoutOutput = "";
+
+      python.stdout.on("data", (data) => {
+        stdoutOutput += data.toString();
+      });
 
       python.stderr.on("data", (data) => {
         errorOutput += data.toString();
       });
 
       python.on("close", (code) => {
-        if (code !== 0 && errorOutput) {
-          console.error("Display error:", errorOutput);
+        if (code !== 0) {
+          console.error(`Display script exited with code ${code}`);
+          if (errorOutput) {
+            console.error("Display stderr:", errorOutput);
+          }
+          if (stdoutOutput) {
+            console.log("Display stdout:", stdoutOutput);
+          }
         }
-        // Always resolve - fallback to console logging
-        console.log(`[DISPLAY] ${text}`);
+        resolve();
+      });
+      
+      python.on("error", (error) => {
+        console.error("Failed to start display script:", error);
         resolve();
       });
     } else {
-      // Fallback to console if display script not available
-      console.log(`[DISPLAY] ${text}`);
+      console.warn(`Display script not found at ${displayScript}`);
       resolve();
     }
   });

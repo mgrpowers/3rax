@@ -8,13 +8,27 @@ import sys
 import argparse
 from PIL import Image, ImageDraw, ImageFont
 
+# Try multiple display libraries
+LUMA_AVAILABLE = False
+ADAFRUIT_AVAILABLE = False
+
 try:
     from luma.lcd.interface import lcd_gpio
     from luma.lcd.device import st7789
     LUMA_AVAILABLE = True
 except ImportError:
-    LUMA_AVAILABLE = False
-    print("Warning: luma.lcd not available. Install with: sudo pip3 install luma.lcd", file=sys.stderr)
+    try:
+        import board
+        import digitalio
+        from adafruit_rgb_display import st7789 as adafruit_st7789
+        ADAFRUIT_AVAILABLE = True
+    except ImportError:
+        pass
+
+if not LUMA_AVAILABLE and not ADAFRUIT_AVAILABLE:
+    print("Warning: No display library available. Install with:", file=sys.stderr)
+    print("  sudo pip3 install --break-system-packages luma.lcd", file=sys.stderr)
+    print("  OR: sudo pip3 install --break-system-packages adafruit-circuitpython-st7789", file=sys.stderr)
 
 def display_text(text, width=135, height=240):
     """Display text on Mini PiTFT display"""
@@ -74,10 +88,15 @@ def display_text(text, width=135, height=240):
             if y > height - 20:
                 break
         
-        device.display(img)
+        if LUMA_AVAILABLE:
+            device.display(img)
+        elif ADAFRUIT_AVAILABLE:
+            device.image(img)
         
     except Exception as e:
         print(f"Display error: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
         print(f"[DISPLAY] {text}")  # Fallback to console
 
 if __name__ == '__main__':

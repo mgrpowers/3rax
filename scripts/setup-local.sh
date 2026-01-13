@@ -82,12 +82,16 @@ fi
 
 # Install backend dependencies
 echo "Installing backend dependencies..."
-npm install
 
-# Rebuild canvas for ARM architecture if on Raspberry Pi
+# On ARM (Raspberry Pi), canvas needs to be built from source
 if uname -m | grep -q "arm"; then
-    echo "Rebuilding canvas for ARM architecture..."
-    npm rebuild canvas 2>/dev/null || echo "⚠️  Canvas rebuild failed, but continuing..."
+    echo "Detected ARM architecture - canvas will be built from source..."
+    # Install canvas separately with build-from-source flag
+    npm install --ignore-scripts
+    npm install canvas --build-from-source
+    npm install
+else
+    npm install
 fi
 
 # Generate Prisma client
