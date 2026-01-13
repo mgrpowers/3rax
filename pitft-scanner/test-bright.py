@@ -29,8 +29,25 @@ try:
     except Exception as e:
         print(f"⚠️  Backlight GPIO 18 failed: {e}")
     
+    # Configure SPI with explicit settings
     spi = board.SPI()
+    if hasattr(spi, 'configure'):
+        try:
+            spi.configure(baudrate=24000000)  # 24MHz - common for ST7789
+            print("✅ SPI configured at 24MHz")
+        except:
+            print("⚠️  Could not configure SPI speed")
+    
     display = st7789.ST7789(spi, cs=cs_pin, dc=dc_pin, rst=reset_pin, width=135, height=240, rotation=0)
+    
+    # Try to wake display explicitly
+    print("Waking display...")
+    try:
+        # Display ON command
+        display._write(0x29)
+        time.sleep(0.1)
+    except:
+        pass
     
     print("✅ Display initialized!")
     print("")
@@ -54,7 +71,16 @@ try:
     for color_name, rgb in colors:
         print(f"Showing {color_name} (5 seconds)...")
         img = Image.new('RGB', (135, 240), color=rgb)
+        # Ensure image is in correct format
+        if img.mode != 'RGB':
+            img = img.convert('RGB')
         display.image(img)
+        # Force refresh
+        try:
+            display.refresh()
+        except:
+            pass
+        print(f"  ✅ {color_name} sent to display")
         time.sleep(5)
     
     print("")
