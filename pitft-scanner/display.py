@@ -57,29 +57,39 @@ def display_text(text, width=135, height=240):
             import board
             import digitalio
             
+            print("[DEBUG] Attempting Adafruit display initialization...", file=sys.stderr)
+            
             # Try CS=None (some PiTFTs tie CS), then CE0, then CE1 to avoid "GPIO busy"
             cs_candidates = [None, getattr(board, "CE0", None), getattr(board, "CE1", None)]
             cs_candidates = [c for c in cs_candidates if c is None or c is not None]
             dc_pin_id = getattr(board, "D24", None)
             rst_pin_id = getattr(board, "D25", None)
             
+            print(f"[DEBUG] CS candidates: {cs_candidates}, DC={dc_pin_id}, RST={rst_pin_id}", file=sys.stderr)
+            
             last_error = None
             for cs_candidate in cs_candidates:
                 try:
+                    print(f"[DEBUG] Trying CS={cs_candidate}...", file=sys.stderr)
                     cs_pin = digitalio.DigitalInOut(cs_candidate) if cs_candidate is not None else None
                     dc_pin = digitalio.DigitalInOut(dc_pin_id)
                     reset_pin = digitalio.DigitalInOut(rst_pin_id)
                     
                     # Try to control backlight (GPIO 18)
+                    backlight_pin = None
                     try:
                         backlight_pin = digitalio.DigitalInOut(getattr(board, "D18"))
                         backlight_pin.switch_to_output()
                         backlight_pin.value = True  # Turn on backlight
-                    except Exception:
+                        print("[DEBUG] Backlight enabled on GPIO 18", file=sys.stderr)
+                    except Exception as e:
+                        print(f"[DEBUG] Backlight control failed (may not be needed): {e}", file=sys.stderr)
                         pass  # Backlight control optional
                     
                     # Create display
+                    print("[DEBUG] Creating SPI interface...", file=sys.stderr)
                     spi_interface = board.SPI()
+                    print("[DEBUG] Creating ST7789 display...", file=sys.stderr)
                     device = adafruit_st7789.ST7789(
                         spi_interface,
                         cs=cs_pin,
@@ -89,11 +99,13 @@ def display_text(text, width=135, height=240):
                         height=height,
                         rotation=0
                     )
+                    print(f"[DEBUG] Display initialized successfully with CS={cs_candidate}", file=sys.stderr)
                     # Success, break out
                     last_error = None
                     break
                 except Exception as e:
                     last_error = e
+                    print(f"[DEBUG] Failed with CS={cs_candidate}: {e}", file=sys.stderr)
                     # Clean up pins if partially initialized
                     try:
                         if cs_pin:
@@ -106,6 +118,11 @@ def display_text(text, width=135, height=240):
                         pass
                     try:
                         reset_pin.deinit()
+                    except Exception:
+                        pass
+                    try:
+                        if backlight_pin:
+                            backlight_pin.deinit()
                     except Exception:
                         pass
                     continue
