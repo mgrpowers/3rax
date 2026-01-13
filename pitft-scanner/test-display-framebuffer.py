@@ -2,6 +2,7 @@
 """
 Test display using framebuffer (if available)
 Many Mini PiTFT setups use /dev/fb1 instead of direct SPI
+Works better with MoOde/KMS setups
 """
 
 import sys
@@ -15,17 +16,24 @@ print("=" * 60)
 
 # Check for framebuffer device
 fb_device = None
-for fb in ['/dev/fb1', '/dev/fb0']:
+fb_devices = []
+for fb in ['/dev/fb0', '/dev/fb1', '/dev/fb2']:
     if os.path.exists(fb):
-        fb_device = fb
-        print(f"✅ Found framebuffer: {fb_device}")
-        break
+        fb_devices.append(fb)
+        print(f"✅ Found framebuffer: {fb}")
 
-if not fb_device:
-    print("❌ No framebuffer device found")
+if not fb_devices:
+    print("❌ No framebuffer devices found")
     print("Try: ls -la /dev/fb*")
     print("If no framebuffer, use direct SPI method instead")
     sys.exit(1)
+
+# Try fb1 first (usually the secondary display), then fb0
+for fb in ['/dev/fb1', '/dev/fb0', '/dev/fb2']:
+    if fb in fb_devices:
+        fb_device = fb
+        print(f"Using: {fb_device}")
+        break
 
 try:
     # Open framebuffer

@@ -14,24 +14,61 @@ try:
     
     print("Initializing display...")
     
-    # Try CE0 first
-    cs_pin = digitalio.DigitalInOut(board.CE0)
-    dc_pin = digitalio.DigitalInOut(board.D24)
-    reset_pin = digitalio.DigitalInOut(board.D25)
+    # Try CS=None first (some PiTFTs tie CS low, don't need software control)
+    # Then try CE0, CE1 if None doesn't work
+    cs_options = [None, board.CE0, board.CE1]
+    cs_pin = None
+    device = None
     
-    # Backlight
-    try:
-        backlight = digitalio.DigitalInOut(board.D18)
-        backlight.switch_to_output()
-        backlight.value = True
-        print("Backlight ON")
-    except:
-        print("Backlight control failed (continuing anyway)")
+    for cs_option in cs_options:
+        try:
+            print(f"Trying CS={cs_option}...")
+            if cs_option is not None:
+                cs_pin = digitalio.DigitalInOut(cs_option)
+            else:
+                cs_pin = None
+            
+            dc_pin = digitalio.DigitalInOut(board.D24)
+            reset_pin = digitalio.DigitalInOut(board.D25)
     
-    spi = board.SPI()
-    display = st7789.ST7789(spi, cs=cs_pin, dc=dc_pin, rst=reset_pin, width=135, height=240, rotation=0)
+            # Backlight
+            try:
+                backlight = digitalio.DigitalInOut(board.D18)
+                backlight.switch_to_output()
+                backlight.value = True
+                print("Backlight ON")
+            except Exception as e:
+                print(f"Backlight control failed (continuing anyway): {e}")
+            
+            spi = board.SPI()
+            display = st7789.ST7789(spi, cs=cs_pin, dc=dc_pin, rst=reset_pin, width=135, height=240, rotation=0)
+            
+            print(f"Display initialized with CS={cs_option}!")
+            device = display
+            break
+        except Exception as e:
+            print(f"Failed with CS={cs_option}: {e}")
+            # Clean up
+            try:
+                if cs_pin:
+                    cs_pin.deinit()
+            except:
+                pass
+            try:
+                dc_pin.deinit()
+            except:
+                pass
+            try:
+                reset_pin.deinit()
+            except:
+                pass
+            continue
     
-    print("Display initialized!")
+    if device is None:
+        print("Failed to initialize display with any CS option")
+        sys.exit(1)
+    
+    display = device
     print("Testing colors...")
     
     # Test 1: RED
