@@ -66,9 +66,29 @@ EOF
     echo "Created .env file"
 fi
 
+# Install system dependencies for canvas (needed on Raspberry Pi)
+if command -v apt-get > /dev/null 2>&1; then
+    echo "Installing system dependencies for canvas (Raspberry Pi)..."
+    sudo apt-get update -qq
+    sudo apt-get install -y \
+        build-essential \
+        libcairo2-dev \
+        libpango1.0-dev \
+        libjpeg-dev \
+        libgif-dev \
+        librsvg2-dev \
+        2>/dev/null || echo "⚠️  Could not install system dependencies (may need manual install)"
+fi
+
 # Install backend dependencies
 echo "Installing backend dependencies..."
 npm install
+
+# Rebuild canvas for ARM architecture if on Raspberry Pi
+if uname -m | grep -q "arm"; then
+    echo "Rebuilding canvas for ARM architecture..."
+    npm rebuild canvas 2>/dev/null || echo "⚠️  Canvas rebuild failed, but continuing..."
+fi
 
 # Generate Prisma client
 echo "Generating Prisma client..."
