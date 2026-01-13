@@ -57,30 +57,60 @@ def display_text(text, width=135, height=240):
             import board
             import digitalio
             
-            # Configure CS and DC pins
-            cs_pin = digitalio.DigitalInOut(board.CE0)
-            dc_pin = digitalio.DigitalInOut(board.D24)
-            reset_pin = digitalio.DigitalInOut(board.D25)
+            # Try multiple CS pins to avoid "GPIO busy" (CE0 then CE1)
+            cs_candidates = [getattr(board, "CE0", None), getattr(board, "CE1", None)]
+            cs_candidates = [c for c in cs_candidates if c is not None]
+            dc_pin_id = getattr(board, "D24", None)
+            rst_pin_id = getattr(board, "D25", None)
             
-            # Try to control backlight (GPIO 18)
-            try:
-                backlight_pin = digitalio.DigitalInOut(board.D18)
-                backlight_pin.switch_to_output()
-                backlight_pin.value = True  # Turn on backlight
-            except:
-                pass  # Backlight control optional
+            last_error = None
+            for cs_candidate in cs_candidates:
+                try:
+                    cs_pin = digitalio.DigitalInOut(cs_candidate)
+                    dc_pin = digitalio.DigitalInOut(dc_pin_id)
+                    reset_pin = digitalio.DigitalInOut(rst_pin_id)
+                    
+                    # Try to control backlight (GPIO 18)
+                    try:
+                        backlight_pin = digitalio.DigitalInOut(getattr(board, "D18"))
+                        backlight_pin.switch_to_output()
+                        backlight_pin.value = True  # Turn on backlight
+                    except Exception:
+                        pass  # Backlight control optional
+                    
+                    # Create display
+                    spi_interface = board.SPI()
+                    device = adafruit_st7789.ST7789(
+                        spi_interface,
+                        cs=cs_pin,
+                        dc=dc_pin,
+                        rst=reset_pin,
+                        width=width,
+                        height=height,
+                        rotation=0
+                    )
+                    # Success, break out
+                    last_error = None
+                    break
+                except Exception as e:
+                    last_error = e
+                    # Clean up pins if partially initialized
+                    try:
+                        cs_pin.deinit()
+                    except Exception:
+                        pass
+                    try:
+                        dc_pin.deinit()
+                    except Exception:
+                        pass
+                    try:
+                        reset_pin.deinit()
+                    except Exception:
+                        pass
+                    continue
             
-            # Create display
-            spi_interface = board.SPI()
-            device = adafruit_st7789.ST7789(
-                spi_interface,
-                cs=cs_pin,
-                dc=dc_pin,
-                rst=reset_pin,
-                width=width,
-                height=height,
-                rotation=0
-            )
+            if device is None:
+                raise Exception(f"Adafruit initialization failed: {last_error}")
         elif LUMA_AVAILABLE:
             # Use luma.lcd library with SPI interface (fallback)
             # Mini PiTFT uses SPI, not GPIO LCD interface
