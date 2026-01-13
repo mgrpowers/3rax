@@ -38,7 +38,15 @@ try:
         except:
             print("⚠️  Could not configure SPI speed")
     
-    display = st7789.ST7789(spi, cs=cs_pin, dc=dc_pin, rst=reset_pin, width=135, height=240, rotation=0)
+    # Try rotation=90 first (common for Mini PiTFT)
+    print("Trying rotation=90 (common for Mini PiTFT)...")
+    try:
+        display = st7789.ST7789(spi, cs=cs_pin, dc=dc_pin, rst=reset_pin, width=135, height=240, rotation=90)
+        print("✅ Using rotation=90")
+    except:
+        print("Trying rotation=0...")
+        display = st7789.ST7789(spi, cs=cs_pin, dc=dc_pin, rst=reset_pin, width=135, height=240, rotation=0)
+        print("✅ Using rotation=0")
     
     # Try to wake display explicitly
     print("Waking display...")
