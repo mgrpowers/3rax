@@ -13,8 +13,8 @@ LUMA_AVAILABLE = False
 ADAFRUIT_AVAILABLE = False
 
 try:
-    from luma.lcd.interface import lcd_gpio
-    from luma.lcd.device import st7789
+    from luma.core.interface.serial import spi
+    from luma.lcd.device import st7789 as luma_st7789
     LUMA_AVAILABLE = True
 except ImportError:
     try:
@@ -33,19 +33,44 @@ if not LUMA_AVAILABLE and not ADAFRUIT_AVAILABLE:
 def display_text(text, width=135, height=240):
     """Display text on Mini PiTFT display"""
     
-    if not LUMA_AVAILABLE:
+    # Fallback to console if no display library available
+    if not LUMA_AVAILABLE and not ADAFRUIT_AVAILABLE:
         print(f"[DISPLAY] {text}")
         return
     
     try:
-        # Initialize display
-        # GPIO pins for Mini PiTFT - adjust if using different wiring
-        interface = lcd_gpio(
-            gpio_LIGHT=18,  # Backlight
-            gpio_RS=27,     # Register select
-            gpio_RST=22     # Reset
-        )
-        device = st7789(interface, width=width, height=height, rotate=0)
+        device = None
+        
+        if LUMA_AVAILABLE:
+            # Use luma.lcd library with SPI interface
+            # Mini PiTFT uses SPI, not GPIO LCD interface
+            # SPI pins: SPI0, CS=CE0 (GPIO 8), DC=GPIO 24, RST=GPIO 25
+            serial = spi(port=0, device=0, gpio_DC=24, gpio_RST=25)
+            device = luma_st7789(serial, width=width, height=height, rotate=0)
+        elif ADAFRUIT_AVAILABLE:
+            # Use Adafruit CircuitPython library
+            import board
+            import digitalio
+            
+            # Configure CS and DC pins
+            cs_pin = digitalio.DigitalInOut(board.CE0)
+            dc_pin = digitalio.DigitalInOut(board.D24)
+            reset_pin = digitalio.DigitalInOut(board.D25)
+            
+            # Create display
+            spi_interface = board.SPI()
+            device = adafruit_st7789.ST7789(
+                spi_interface,
+                cs=cs_pin,
+                dc=dc_pin,
+                rst=reset_pin,
+                width=width,
+                height=height,
+                rotation=0
+            )
+        
+        if not device:
+            raise Exception("Failed to initialize display device")
         
         # Create image with black background
         img = Image.new('RGB', (width, height), color='black')
@@ -109,4 +134,3 @@ if __name__ == '__main__':
     text = ' '.join(args.text) if args.text else sys.stdin.read()
     
     display_text(text.strip(), args.width, args.height)
-

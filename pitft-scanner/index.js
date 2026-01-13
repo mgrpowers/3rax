@@ -7,6 +7,8 @@ import readline from "readline";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { existsSync } from "fs";
+import qrcode from "qrcode-terminal";
+import qrcode from "qrcode-terminal";
 
 dotenv.config();
 
@@ -27,7 +29,7 @@ async function displayMessage(text) {
   return new Promise((resolve) => {
     // Always log to console for debugging
     console.log(`[DISPLAY] ${text}`);
-    
+
     if (existsSync(displayScript)) {
       // Pass text as argument (will be escaped by spawn)
       const python = spawn("python3", [displayScript, text]);
@@ -54,7 +56,7 @@ async function displayMessage(text) {
         }
         resolve();
       });
-      
+
       python.on("error", (error) => {
         console.error("Failed to start display script:", error);
         resolve();
@@ -225,24 +227,87 @@ async function handleScan(qrCode) {
 }
 
 // Setup input from USB scanner (keyboard input)
+console.log("Setting up scanner input...");
+
+// Ensure stdin is readable and not paused
+if (process.stdin.isTTY) {
+  process.stdin.setRawMode(false); // Cooked mode for readline
+  process.stdin.resume();
+} else {
+  console.warn("Warning: stdin is not a TTY.");
+  console.warn(
+    "If scanner doesn't work, try running with: node index.js < /dev/ttyUSB0"
+  );
+  console.warn("Or ensure the scanner is connected as a keyboard device.");
+}
+
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
   terminal: false,
 });
 
-// Handle scanner input (scanners typically send data followed by Enter)
+let inputBuffer = "";
+
+// Handle scanner input via readline (scanners typically send data followed by Enter)
 rl.on("line", (line) => {
   const qrCode = line.trim();
   if (qrCode) {
-    console.log(`Scanned: ${qrCode}`);
+    console.log(`[SCANNER] Scanned: ${qrCode}`);
     handleScan(qrCode);
   }
 });
 
-// Initialize display
-displayMessage("Scanner ready...\nWaiting for scan");
+// Also handle raw input for scanners that don't send newlines properly
+process.stdin.setEncoding("utf8");
 
-console.log("Scanner service started");
-console.log(`API URL: ${API_URL}`);
-console.log("Waiting for scans...");
+process.stdin.on("data", (data) => {
+  inputBuffer += data.toString();
+  // Check for Enter key or newline
+  if (inputBuffer.includes("\n") || inputBuffer.includes("\r")) {
+    const lines = inputBuffer.split(/\r?\n/);
+    inputBuffer = lines.pop() || ""; // Keep incomplete line in buffer
+
+    for (const line of lines) {
+      const qrCode = line.trim();
+      if (qrCode) {
+        console.log(`[SCANNER] Scanned (raw): ${qrCode}`);
+        handleScan(qrCode);
+      }
+    }
+  }
+});
+
+// Initialize display
+displayMessage("Scanner ready...\nWaiting for scan").then(() => {
+  console.log("Scanner service started");
+  console.log(`API URL: ${API_URL}`);
+  console.log("Waiting for scans...");
+  console.log(
+    "Make sure your USB scanner is connected and sending keyboard input"
+  );
+  console.log("");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("📱 TEST QR CODE - Scan this to verify:");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("");
+
+  // Generate a test QR code with a simple message
+  const testQRCode = JSON.stringify({
+    type: "test",
+    message: "Scanner service is working!",
+    timestamp: new Date().toISOString(),
+  });
+
+  qrcode.generate(testQRCode, { small: true }, (qr) => {
+    console.log(qr);
+    console.log("");
+    console.log("Test QR Code Data:");
+    console.log(testQRCode);
+    console.log("");
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("Ready to scan real QR codes...");
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("");
+  });
+});
