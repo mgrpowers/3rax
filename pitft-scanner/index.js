@@ -8,7 +8,6 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { existsSync } from "fs";
 import qrcode from "qrcode-terminal";
-import qrcode from "qrcode-terminal";
 
 dotenv.config();
 
