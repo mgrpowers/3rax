@@ -31,7 +31,8 @@ async function displayMessage(text) {
 
     if (existsSync(displayScript)) {
       // Pass text as argument (will be escaped by spawn)
-      const python = spawn("python3", [displayScript, text]);
+      // Use sudo for GPIO access (required for Mini PiTFT)
+      const python = spawn("sudo", ["python3", displayScript, text]);
       let errorOutput = "";
       let stdoutOutput = "";
 

@@ -51,7 +51,27 @@ DISPLAY_WIDTH=135
 DISPLAY_HEIGHT=240
 ```
 
-### 4. Run the Service
+### 4. Configure GPIO Access
+
+The display requires GPIO access. You have two options:
+
+**Option A: Run service with sudo (easiest)**
+
+```bash
+sudo npm start
+```
+
+**Option B: Add user to gpio group (recommended for production)**
+
+```bash
+sudo usermod -aG gpio $USER
+# Log out and back in for group changes to take effect
+npm start
+```
+
+**Note:** The service will automatically use `sudo` when calling the display script, so you may need to configure passwordless sudo for the display script, or use Option B above.
+
+### 5. Run the Service
 
 ```bash
 npm start

@@ -13,23 +13,33 @@ from PIL import Image, ImageDraw, ImageFont
 LUMA_AVAILABLE = False
 ADAFRUIT_AVAILABLE = False
 
+# Try Adafruit first (often works better with newer Python/Raspberry Pi OS)
 try:
-    from luma.core.interface.serial import spi
-    from luma.lcd.device import st7789 as luma_st7789
-    LUMA_AVAILABLE = True
+    import board
+    import digitalio
+    from adafruit_rgb_display import st7789 as adafruit_st7789
+    ADAFRUIT_AVAILABLE = True
 except ImportError:
+    ADAFRUIT_AVAILABLE = False
     try:
-        import board
-        import digitalio
-        from adafruit_rgb_display import st7789 as adafruit_st7789
-        ADAFRUIT_AVAILABLE = True
+        from luma.core.interface.serial import spi
+        from luma.lcd.device import st7789 as luma_st7789
+        LUMA_AVAILABLE = True
     except ImportError:
-        pass
+        LUMA_AVAILABLE = False
 
 if not LUMA_AVAILABLE and not ADAFRUIT_AVAILABLE:
     print("Warning: No display library available. Install with:", file=sys.stderr)
     print("  sudo pip3 install --break-system-packages luma.lcd", file=sys.stderr)
-    print("  OR: sudo pip3 install --break-system-packages adafruit-circuitpython-st7789", file=sys.stderr)
+    print("  OR: sudo pip3 install --break-system-packages adafruit-circuitpython-st7789 adafruit-blinka", file=sys.stderr)
+
+# Check for SPI devices
+import os
+spi_devices = [d for d in os.listdir('/dev') if d.startswith('spi')]
+if not spi_devices:
+    print("Warning: No SPI devices found in /dev/. SPI may not be enabled.", file=sys.stderr)
+    print("  Enable SPI: sudo raspi-config -> Interface Options -> SPI -> Enable", file=sys.stderr)
+    print("  Then reboot: sudo reboot", file=sys.stderr)
 
 def display_text(text, width=135, height=240):
     """Display text on Mini PiTFT display"""
@@ -42,22 +52,65 @@ def display_text(text, width=135, height=240):
     try:
         device = None
         
-        if LUMA_AVAILABLE:
-            # Use luma.lcd library with SPI interface
+        if ADAFRUIT_AVAILABLE:
+            # Use Adafruit CircuitPython library (often works better with newer Python/Raspberry Pi OS)
+            import board
+            import digitalio
+            
+            # Configure CS and DC pins
+            cs_pin = digitalio.DigitalInOut(board.CE0)
+            dc_pin = digitalio.DigitalInOut(board.D24)
+            reset_pin = digitalio.DigitalInOut(board.D25)
+            
+            # Try to control backlight (GPIO 18)
+            try:
+                backlight_pin = digitalio.DigitalInOut(board.D18)
+                backlight_pin.switch_to_output()
+                backlight_pin.value = True  # Turn on backlight
+            except:
+                pass  # Backlight control optional
+            
+            # Create display
+            spi_interface = board.SPI()
+            device = adafruit_st7789.ST7789(
+                spi_interface,
+                cs=cs_pin,
+                dc=dc_pin,
+                rst=reset_pin,
+                width=width,
+                height=height,
+                rotation=0
+            )
+        elif LUMA_AVAILABLE:
+            # Use luma.lcd library with SPI interface (fallback)
             # Mini PiTFT uses SPI, not GPIO LCD interface
             # SPI pins: SPI0, CS=CE0 (GPIO 8), DC=GPIO 24, RST=GPIO 25
             # Backlight: GPIO 18 (optional, but helps visibility)
+            
+            # Try to control backlight (requires GPIO access)
             try:
                 import RPi.GPIO as GPIO
                 GPIO.setmode(GPIO.BCM)
                 GPIO.setup(18, GPIO.OUT)
                 GPIO.output(18, GPIO.HIGH)  # Turn on backlight
-            except:
-                pass  # Backlight control optional
+            except Exception as e:
+                # GPIO access might require sudo - that's OK, continue anyway
+                pass
             
-            serial = spi(port=0, device=0, gpio_DC=24, gpio_RST=25)
-            device = luma_st7789(serial, width=width, height=height, rotate=0)
-        elif ADAFRUIT_AVAILABLE:
+            # Initialize SPI interface - this requires GPIO access for DC/RST pins
+            # If running without sudo, this will fail with "Cannot determine SOC peripheral base address"
+            try:
+                serial = spi(port=0, device=0, gpio_DC=24, gpio_RST=25)
+                device = luma_st7789(serial, width=width, height=height, rotate=0)
+            except RuntimeError as e:
+                if "Cannot determine SOC peripheral base address" in str(e):
+                    raise Exception(
+                        "GPIO access issue. Try:\n"
+                        "  1. Install Adafruit library: sudo pip3 install --break-system-packages adafruit-circuitpython-st7789\n"
+                        "  2. OR use gpiod: sudo apt-get install python3-libgpiod\n"
+                        "  3. OR check Python version compatibility with RPi.GPIO"
+                    )
+                raise
             # Use Adafruit CircuitPython library
             import board
             import digitalio
