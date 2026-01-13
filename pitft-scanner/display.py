@@ -57,16 +57,16 @@ def display_text(text, width=135, height=240):
             import board
             import digitalio
             
-            # Try multiple CS pins to avoid "GPIO busy" (CE0 then CE1)
-            cs_candidates = [getattr(board, "CE0", None), getattr(board, "CE1", None)]
-            cs_candidates = [c for c in cs_candidates if c is not None]
+            # Try CS=None (some PiTFTs tie CS), then CE0, then CE1 to avoid "GPIO busy"
+            cs_candidates = [None, getattr(board, "CE0", None), getattr(board, "CE1", None)]
+            cs_candidates = [c for c in cs_candidates if c is None or c is not None]
             dc_pin_id = getattr(board, "D24", None)
             rst_pin_id = getattr(board, "D25", None)
             
             last_error = None
             for cs_candidate in cs_candidates:
                 try:
-                    cs_pin = digitalio.DigitalInOut(cs_candidate)
+                    cs_pin = digitalio.DigitalInOut(cs_candidate) if cs_candidate is not None else None
                     dc_pin = digitalio.DigitalInOut(dc_pin_id)
                     reset_pin = digitalio.DigitalInOut(rst_pin_id)
                     
@@ -96,7 +96,8 @@ def display_text(text, width=135, height=240):
                     last_error = e
                     # Clean up pins if partially initialized
                     try:
-                        cs_pin.deinit()
+                        if cs_pin:
+                            cs_pin.deinit()
                     except Exception:
                         pass
                     try:
