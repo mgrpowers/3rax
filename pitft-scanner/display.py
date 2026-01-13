@@ -6,6 +6,7 @@ This script handles displaying text on the Mini PiTFT screen
 
 import sys
 import argparse
+import time
 from PIL import Image, ImageDraw, ImageFont
 
 # Try multiple display libraries
@@ -45,6 +46,15 @@ def display_text(text, width=135, height=240):
             # Use luma.lcd library with SPI interface
             # Mini PiTFT uses SPI, not GPIO LCD interface
             # SPI pins: SPI0, CS=CE0 (GPIO 8), DC=GPIO 24, RST=GPIO 25
+            # Backlight: GPIO 18 (optional, but helps visibility)
+            try:
+                import RPi.GPIO as GPIO
+                GPIO.setmode(GPIO.BCM)
+                GPIO.setup(18, GPIO.OUT)
+                GPIO.output(18, GPIO.HIGH)  # Turn on backlight
+            except:
+                pass  # Backlight control optional
+            
             serial = spi(port=0, device=0, gpio_DC=24, gpio_RST=25)
             device = luma_st7789(serial, width=width, height=height, rotate=0)
         elif ADAFRUIT_AVAILABLE:
@@ -117,6 +127,9 @@ def display_text(text, width=135, height=240):
             device.display(img)
         elif ADAFRUIT_AVAILABLE:
             device.image(img)
+        
+        # Small delay to ensure display updates and stays visible
+        time.sleep(0.1)
         
     except Exception as e:
         print(f"Display error: {e}", file=sys.stderr)
