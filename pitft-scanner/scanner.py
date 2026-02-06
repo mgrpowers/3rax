@@ -9,7 +9,7 @@ import sys
 import asyncio
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 import os
 
@@ -160,7 +160,7 @@ class ScannerService:
             message = {
                 'scannerId': SCANNER_ID,
                 'scanData': scan_data,
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
                 'type': self._detect_scan_type(scan_data)
             }
             

@@ -7,6 +7,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # Required to push to ghcr.io
     steps:
       - uses: actions/checkout@v4
 
@@ -16,31 +19,27 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      - name: Build backend image
-        run: |
-          docker buildx build \
-            --platform linux/arm64 \
-            --output type=docker \
-            -f docker/Dockerfile.backend \
-            -t 3rax-backend:latest .
-
-      - name: Build frontend image
-        run: |
-          docker buildx build \
-            --platform linux/arm64 \
-            --output type=docker \
-            -f docker/Dockerfile.frontend.k8s \
-            -t 3rax-frontend:latest .
-
-      - name: Save images as tarballs
-        run: |
-          docker save 3rax-backend:latest | gzip > 3rax-backend.tar.gz
-          docker save 3rax-frontend:latest | gzip > 3rax-frontend.tar.gz
-
-      - uses: actions/upload-artifact@v4
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          name: 3rax-images
-          path: |
-            3rax-backend.tar.gz
-            3rax-frontend.tar.gz
-          retention-days: 30
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.backend
+          platforms: linux/arm64
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/3rax-backend:latest
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.frontend.k8s
+          platforms: linux/arm64
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/3rax-frontend:latest
