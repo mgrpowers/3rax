@@ -9,6 +9,7 @@ import { transactionRoutes } from './routes/transactionRoutes';
 import { searchRoutes } from './routes/searchRoutes';
 import { mtgRoutes } from './routes/mtgRoutes';
 import { qrRoutes } from './routes/qrRoutes';
+import { natsService } from './services/natsService';
 
 dotenv.config();
 
@@ -37,7 +38,34 @@ app.use('/api/search', searchRoutes);
 app.use('/api/mtg', mtgRoutes);
 app.use('/api/qr', qrRoutes);
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
+  
+  // Initialize NATS connection for scanner events
+  const natsUrl = process.env.NATS_URL || 'nats://localhost:4222';
+  const natsSubject = process.env.NATS_SUBJECT || 'scanner.scans';
+  
+  console.log('Connecting to NATS...');
+  const connected = await natsService.connect(natsUrl);
+  
+  if (connected) {
+    await natsService.subscribeScannerEvents(natsSubject);
+    console.log('Scanner event listener active');
+  } else {
+    console.warn('⚠️  NATS connection failed - scanner events will not be processed');
+  }
+});
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+  console.log('\nShutting down gracefully...');
+  await natsService.close();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  console.log('\nShutting down gracefully...');
+  await natsService.close();
+  process.exit(0);
 });
 

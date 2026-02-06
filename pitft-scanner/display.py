@@ -80,10 +80,11 @@ def display_text(text, width=135, height=240):
                     
                     # Hardware reset - pulse reset pin low then high
                     print("[DEBUG] Performing hardware reset...", file=sys.stderr)
+                    reset_pin.switch_to_output()
                     reset_pin.value = False
-                    time.sleep(0.01)
+                    time.sleep(0.05)  # Longer reset pulse
                     reset_pin.value = True
-                    time.sleep(0.05)
+                    time.sleep(0.1)  # Longer wait after reset
                     
                     # Try to control backlight (GPIO 18)
                     backlight_pin = None
@@ -101,42 +102,19 @@ def display_text(text, width=135, height=240):
                     spi_interface = board.SPI()
                     print("[DEBUG] Creating ST7789 display...", file=sys.stderr)
                     
-                    # Try different rotations - some displays need rotation=90 or 180
-                    rotations_to_try = [0, 90, 180, 270]
-                    device = None
-                    
-                    for rot in rotations_to_try:
-                        try:
-                            print(f"[DEBUG] Trying rotation={rot}...", file=sys.stderr)
-                            device = adafruit_st7789.ST7789(
-                                spi_interface,
-                                cs=cs_pin,
-                                dc=dc_pin,
-                                rst=reset_pin,
-                                width=width,
-                                height=height,
-                                rotation=rot
-                            )
-                            # Test with a bright color
-                            test_img = Image.new('RGB', (width, height), color='red')
-                            device.image(test_img)
-                            time.sleep(0.2)
-                            print(f"[DEBUG] Rotation {rot} test sent", file=sys.stderr)
-                            # If we get here without error, this rotation works
-                            print(f"[DEBUG] Using rotation={rot}", file=sys.stderr)
-                            break
-                        except Exception as e:
-                            print(f"[DEBUG] Rotation {rot} failed: {e}", file=sys.stderr)
-                            if device:
-                                try:
-                                    device._release()
-                                except:
-                                    pass
-                            device = None
-                            continue
-                    
-                    if device is None:
-                        raise Exception("Could not initialize display with any rotation")
+                    # Mini PiTFT 135x240 standard rotation is 90 degrees
+                    print("[DEBUG] Creating ST7789 display with rotation=90 (standard for Mini PiTFT)...", file=sys.stderr)
+                    device = adafruit_st7789.ST7789(
+                        spi_interface,
+                        cs=cs_pin,
+                        dc=dc_pin,
+                        rst=reset_pin,
+                        width=width,
+                        height=height,
+                        rotation=90,  # 90 degrees is standard for Mini PiTFT 135x240
+                        baudrate=24000000  # Explicit baudrate
+                    )
+                    print("[DEBUG] Display object created", file=sys.stderr)
                     print(f"[DEBUG] Display initialized successfully with CS={cs_candidate}", file=sys.stderr)
                     
                     # Send a test pattern immediately to verify communication

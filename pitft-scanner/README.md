@@ -1,97 +1,141 @@
-# Raspberry Pi Scanner Service with Mini PiTFT Display
+# Raspberry Pi USB Scanner Service
 
-This service runs on a Raspberry Pi with a Mini PiTFT (135x240) display and USB scanner to handle item check-in/check-out operations.
+A lightweight Python service that reads from a USB barcode/QR scanner and publishes scan events to NATS for real-time processing by the 3rax inventory backend.
+
+## Overview
+
+This service simplifies inventory management by:
+- Reading USB scanner input (keyboard wedge style)
+- Publishing scan events to NATS message broker
+- Receiving transaction results from the backend
+- Supporting multiple concurrent scanners
+
+## Quick Start
+
+See [SCANNER-QUICKSTART.md](../SCANNER-QUICKSTART.md) for a 5-minute setup guide.
 
 ## Hardware Requirements
 
-- Raspberry Pi (any model)
-- Adafruit Mini PiTFT - 135x240 Color TFT Add-on
-- USB QR code scanner (appears as keyboard input)
+- Raspberry Pi (any model with USB port)
+- USB Barcode/QR Scanner (keyboard wedge type)
+- Network connection to NATS server
 
 ## Software Requirements
 
-- Node.js (v18+)
-- Python 3 (for display library)
-- pip3
+- Python 3.7+
+- NATS Server (can run on separate machine)
+- Internet connection for initial setup
 
-## Setup
+## Installation
 
-### 1. Install Display Library
-
-For systems with externally-managed-environment protection, use the `--break-system-packages` flag:
+### Quick Install
 
 ```bash
-sudo pip3 install --break-system-packages luma.lcd Pillow
+./install.sh
 ```
 
-Alternatively, install to user directory (no sudo required):
+### Manual Install
 
 ```bash
-pip3 install --user luma.lcd Pillow
+# Install Python dependencies
+pip3 install -r requirements.txt
+
+# Create configuration
+cp .env.example .env
+nano .env
 ```
 
-Note: If using `--user`, you may need to add `~/.local/bin` to your PATH.
+## Configuration
 
-### 2. Install Node.js Dependencies
+Edit `.env`:
 
 ```bash
-cd pitft-scanner
-npm install
-```
+# NATS Server URL (replace with your server IP)
+NATS_URL=nats://192.168.1.100:4222
 
-### 3. Configure Environment
+# NATS subject for scan events
+NATS_SUBJECT=scanner.scans
 
-Create a `.env` file:
-
-```env
-API_URL=http://your-backend-ip:3001
-SCANNER_INPUT_DEVICE=/dev/input/event0
-DISPLAY_TYPE=st7789
-DISPLAY_WIDTH=135
-DISPLAY_HEIGHT=240
-```
-
-### 4. Configure GPIO Access
-
-The display requires GPIO access. You have two options:
-
-**Option A: Run service with sudo (easiest)**
-
-```bash
-sudo npm start
-```
-
-**Option B: Add user to gpio group (recommended for production)**
-
-```bash
-sudo usermod -aG gpio $USER
-# Log out and back in for group changes to take effect
-npm start
-```
-
-**Note:** The service will automatically use `sudo` when calling the display script, so you may need to configure passwordless sudo for the display script, or use Option B above.
-
-### 5. Run the Service
-
-```bash
-npm start
-```
-
-Or for development with auto-reload:
-
-```bash
-npm run dev
+# Unique ID for this scanner
+SCANNER_ID=rpi-scanner-01
 ```
 
 ## Usage
 
-1. Scan an item QR code or bin QR code (order doesn't matter)
-2. The service will detect what was scanned and wait for the other
-3. Once both are scanned, it will process the transaction
-4. Status messages are displayed on the Mini PiTFT screen
+### Run Manually
 
-## Status Messages
+```bash
+python3 scanner.py
+```
 
-- "HDMI cable scanned... waiting for bin scan"
-- "Cable checked back into bin x"
-- "Error with bin" or "Cannot find item"
+### Install as System Service
+
+```bash
+sudo ./install-service.sh
+```
+
+Then manage with systemd:
+```bash
+sudo systemctl start 3rax-scanner
+sudo systemctl status 3rax-scanner
+sudo systemctl stop 3rax-scanner
+sudo journalctl -u 3rax-scanner -f  # View logs
+```
+
+## Workflow
+
+1. **Scan an Item** - USB scanner sends QR/barcode data
+2. **Scan a Bin** - Scanner sends bin QR code
+3. **Backend Processes** - Transaction is created in database
+4. **Feedback** - Scanner receives success/error message
+
+Order doesn't matter - you can scan item first or bin first.
+
+## QR Code Formats
+
+### Item QR Code
+```
+ITEM-12345
+```
+
+### Bin QR Code (Check-in)
+```json
+{"type":"bin","id":"bin-uuid","operation":"checkin"}
+```
+
+### Bin QR Code (Check-out)
+```json
+{"type":"bin","id":"bin-uuid","operation":"checkout"}
+```
+
+## Documentation
+
+- **[SCANNER-QUICKSTART.md](../SCANNER-QUICKSTART.md)** - Get started in 5 minutes
+- **[SCANNER-SETUP.md](SCANNER-SETUP.md)** - Detailed setup and configuration guide
+
+## Architecture
+
+```
+USB Scanner → scanner.py → NATS → Backend → Database
+                             ↓
+                        Response Queue
+```
+
+## Features
+
+✅ Lightweight (~10-20MB RAM)  
+✅ Auto-reconnect on network issues  
+✅ Real-time transaction feedback  
+✅ Support for multiple scanners  
+✅ Sub-millisecond latency  
+✅ Easy to deploy and maintain  
+
+## Legacy Files
+
+The following files are from the previous TFT display implementation and can be ignored:
+- `index.js` - Old Node.js scanner service
+- `display.py` - TFT display driver
+- `test-*.py` - Display testing scripts
+- `fix-spi.sh` - SPI configuration for TFT
+
+These are kept for reference but not used in the current NATS-based implementation.
