@@ -1,0 +1,46 @@
+name: Build ARM64 Images
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        run: |
+          docker buildx build \
+            --platform linux/arm64 \
+            --output type=docker \
+            -f docker/Dockerfile.backend \
+            -t 3rax-backend:latest .
+
+      - name: Build frontend image
+        run: |
+          docker buildx build \
+            --platform linux/arm64 \
+            --output type=docker \
+            -f docker/Dockerfile.frontend.k8s \
+            -t 3rax-frontend:latest .
+
+      - name: Save images as tarballs
+        run: |
+          docker save 3rax-backend:latest | gzip > 3rax-backend.tar.gz
+          docker save 3rax-frontend:latest | gzip > 3rax-frontend.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 3rax-images
+          path: |
+            3rax-backend.tar.gz
+            3rax-frontend.tar.gz
+          retention-days: 30
