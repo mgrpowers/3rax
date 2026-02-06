@@ -125,7 +125,7 @@ class ScannerService:
         sub = await self.nc.subscribe(self.response_subject)
         
         async def handle_responses():
-            async for msg in sub:
+            async for msg in sub.messages:
                 try:
                     response = json.loads(msg.data.decode())
                     self._handle_response(response)
