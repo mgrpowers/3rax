@@ -1,5 +1,6 @@
 import { connect, NatsConnection, Subscription } from 'nats';
 import { PrismaClient } from '@prisma/client';
+import { eventBus } from './eventBus';
 
 const prisma = new PrismaClient();
 
@@ -213,6 +214,13 @@ class NatsService {
           `  ✅ Check-in successful: ${dbItem.name} -> ${dbBin.name} (qty: ${itemBin.quantity})`
         );
 
+        // Broadcast real-time event to frontend
+        eventBus.emit({
+          type: 'checkin',
+          data: { item: dbItem, bin: dbBin, quantity: itemBin.quantity },
+          timestamp: new Date().toISOString(),
+        });
+
         await this.publishResponse(scannerId, {
           success: true,
           operation: 'checkin',
@@ -298,6 +306,13 @@ class NatsService {
         console.log(
           `  ✅ Check-out successful: ${dbItem.name} <- ${dbBin.name} (remaining: ${updatedItemBin.quantity})`
         );
+
+        // Broadcast real-time event to frontend
+        eventBus.emit({
+          type: 'checkout',
+          data: { transaction, remainingQuantity: updatedItemBin.quantity },
+          timestamp: new Date().toISOString(),
+        });
 
         await this.publishResponse(scannerId, {
           success: true,

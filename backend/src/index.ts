@@ -10,6 +10,7 @@ import { searchRoutes } from './routes/searchRoutes';
 import { mtgRoutes } from './routes/mtgRoutes';
 import { qrRoutes } from './routes/qrRoutes';
 import { natsService } from './services/natsService';
+import { eventBus } from './services/eventBus';
 
 dotenv.config();
 
@@ -28,6 +29,9 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// SSE endpoint for real-time updates
+app.get('/api/events', eventBus.subscribe);
 
 // API Routes
 app.use('/api/nodes', nodeRoutes);

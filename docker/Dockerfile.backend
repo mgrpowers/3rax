@@ -1,10 +1,26 @@
 # Build stage
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
+# Install build dependencies for native modules (canvas, etc.)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    make \
+    g++ \
+    libcairo2-dev \
+    libjpeg-dev \
+    libpango1.0-dev \
+    libgif-dev \
+    librsvg2-dev \
+    libpixman-1-dev \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy package files
-COPY backend/package*.json ./
+COPY backend/package.json backend/package-lock.json ./
+
+# Install all dependencies
 RUN npm ci
 
 # Copy source code
@@ -16,22 +32,33 @@ RUN npx prisma generate
 # Build TypeScript
 RUN npm run build
 
+# Prune devDependencies
+RUN npm prune --omit=dev
+
 # Production stage
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
 
-# Install CUPS client libraries (for printing)
-RUN apk add --no-cache cups cups-libs
+# Install runtime libraries for canvas and CUPS
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libcairo2 \
+    libjpeg62-turbo \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libgif7 \
+    librsvg2-2 \
+    libpixman-1-0 \
+    cups-client \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy package files
-COPY backend/package*.json ./
-RUN npm ci --only=production
+# Copy production node_modules from builder (already pruned)
+COPY --from=builder /app/node_modules ./node_modules
 
 # Copy built application
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/package.json ./
 
 # Create directories for uploads and temp files
 RUN mkdir -p uploads tmp
@@ -45,4 +72,3 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
 
 # Start application
 CMD ["node", "dist/index.js"]
-

@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { itemApi, Item, searchApi } from '../services/api';
 import { Link } from 'react-router-dom';
+import { useRealtimeEvents } from '../hooks/useRealtimeEvents';
 
 export default function Home() {
   const [items, setItems] = useState<Item[]>([]);
@@ -8,6 +9,14 @@ export default function Home() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+
+  // Re-fetch items when inventory changes
+  useRealtimeEvents(
+    useCallback(() => {
+      if (!isSearching) loadItems();
+    }, [isSearching]),
+    ['checkin', 'checkout', 'item_created', 'item_deleted']
+  );
 
   useEffect(() => {
     loadItems();

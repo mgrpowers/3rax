@@ -7,7 +7,7 @@ metadata:
     app: backend
     component: api
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: backend
@@ -23,8 +23,8 @@ spec:
       
       containers:
       - name: backend
-        image: 3rax-backend:latest
-        imagePullPolicy: IfNotPresent
+        image: docker.io/library/3rax-backend:latest
+        imagePullPolicy: Never
         ports:
         - containerPort: 3001
           name: http

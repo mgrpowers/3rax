@@ -8,7 +8,7 @@ interface QRCodeScannerProps {
 
 export default function QRCodeScanner({ onScan, onClose }: QRCodeScannerProps) {
   const scannerRef = useRef<Html5Qrcode | null>(null);
-  const [scanning, setScanning] = useState(false);
+  const [_scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -29,7 +29,7 @@ export default function QRCodeScanner({ onScan, onClose }: QRCodeScannerProps) {
           html5QrCode.stop();
           setScanning(false);
         },
-        (errorMessage) => {
+        (_errorMessage) => {
           // Ignore scanning errors
         }
       )

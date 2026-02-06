@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { binApi, Bin } from '../services/api';
 import ScannerInput from '../components/ScannerInput';
 import QRCodeDisplay from '../components/QRCodeDisplay';
+import { useRealtimeEvents } from '../hooks/useRealtimeEvents';
 
 export default function BinDetail() {
   const { id } = useParams<{ id: string }>();
@@ -10,6 +11,14 @@ export default function BinDetail() {
   const [bin, setBin] = useState<Bin | null>(null);
   const [loading, setLoading] = useState(true);
   const [showScannerInput, setShowScannerInput] = useState(false);
+
+  // Re-fetch bin data when a check-in or check-out happens
+  useRealtimeEvents(
+    useCallback(() => {
+      if (id) loadBin();
+    }, [id]),
+    ['checkin', 'checkout']
+  );
 
   useEffect(() => {
     if (id) {

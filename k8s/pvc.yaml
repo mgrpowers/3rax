@@ -5,9 +5,8 @@ metadata:
   namespace: 3rax
 spec:
   accessModes:
-    - ReadWriteMany
+    - ReadWriteOnce
+  storageClassName: local-path
   resources:
     requests:
       storage: 10Gi
-  # Optional: Use specific storage class
-  # storageClassName: local-path

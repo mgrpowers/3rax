@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../services/prisma';
 import { QRCodeService } from '../services/qrService';
+import { eventBus } from '../services/eventBus';
 
 export const transactionController = {
   checkIn: async (req: Request, res: Response) => {
@@ -116,6 +117,13 @@ export const transactionController = {
             },
           },
         },
+      });
+
+      // Broadcast real-time event
+      eventBus.emit({
+        type: 'checkin',
+        data: { item, bin, quantity: itemBin?.quantity ?? quantity },
+        timestamp: new Date().toISOString(),
       });
 
       res.status(201).json({
@@ -243,6 +251,13 @@ export const transactionController = {
             },
           },
         },
+      });
+
+      // Broadcast real-time event
+      eventBus.emit({
+        type: 'checkout',
+        data: { item, bin, quantity, remainingQuantity: itemBin?.quantity ?? 0 },
+        timestamp: new Date().toISOString(),
       });
 
       res.status(201).json({

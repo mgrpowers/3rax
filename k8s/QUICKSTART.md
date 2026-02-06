@@ -7,170 +7,246 @@ Get your 3rax backend running on Raspberry Pi K3s in under 30 minutes.
 - Raspberry Pi 4 (4GB+ RAM)
 - Raspberry Pi OS Lite 64-bit
 - Static IP configured
+- Development machine (Mac/Linux) with Docker installed
 
 ## Step-by-Step
 
-### 1. Enable Cgroups (Required!)
+### 1. Enable Cgroups on Pi (Required!)
 
-SSH into your Raspberry Pi and enable cgroups first:
+SSH into your Raspberry Pi:
 
 ```bash
-# Download and run the fix script
-./k8s/fix-cgroups.sh
+ssh raspberry@<pi-ip>
 
-# Or manually edit boot config:
-sudo nano /boot/firmware/cmdline.txt  # or /boot/cmdline.txt on older OS
+# Edit boot config (check which file exists):
+# Newer OS (Bookworm):
+sudo nano /boot/firmware/cmdline.txt
+# Older OS (Bullseye):
+# sudo nano /boot/cmdline.txt
 
-# Add to the END of the line (no new line!):
+# Add to the END of the existing line (don't create a new line!):
 cgroup_memory=1 cgroup_enable=memory
 
-# Reboot
+# Save and reboot
 sudo reboot
 ```
 
-### 2. Install K3s (Master Node)
+After reboot, verify:
+```bash
+cat /proc/cgroups | grep memory
+# Should show: memory  0  0  1
+```
 
-After reboot:
+### 2. Install K3s on Pi (Master Node)
+
+SSH into Pi after reboot:
 
 ```bash
+ssh raspberry@<pi-ip>
+
 # Install K3s
 curl -sfL https://get.k3s.io | sh -s - server --write-kubeconfig-mode 644
 
-# Verify
+# Wait ~30 seconds for it to start, then verify
 sudo kubectl get nodes
 ```
 
-**If K3s fails to start**, see `TROUBLESHOOTING.md` for the cgroup fix.
+**If K3s fails to start**, see `TROUBLESHOOTING.md`.
 
-### 3. Build ARM64 Image
+### 3. Build ARM64 Docker Image
 
-On your development machine:
+On your **development machine** (Mac/Linux):
 
 ```bash
-cd 3rax
+cd /path/to/3rax
 ./k8s/build-arm.sh latest
 ```
 
 ### 4. Transfer Image to Pi
 
+On your **development machine**:
+
 ```bash
-# Save and compress
+# Save image to file
 docker save 3rax-backend:latest | gzip > 3rax-backend.tar.gz
 
 # Copy to Pi
-scp 3rax-backend.tar.gz pi@<pi-ip>:~/
-
-# Import on Pi
-ssh pi@<pi-ip>
-gunzip -c 3rax-backend.tar.gz | sudo k3s ctr images import -
+scp 3rax-backend.tar.gz raspberry@<pi-ip>:~/
 ```
 
-### 5. Configure
+On the **Pi**:
 
 ```bash
-# On Pi, edit configuration
-cd ~/3rax/k8s
+# Import image into K3s
+gunzip -c ~/3rax-backend.tar.gz | sudo k3s ctr images import -
 
-# Update database URL in secret.yaml
+# Verify it was imported
+sudo k3s ctr images ls | grep 3rax
+```
+
+### 5. Copy K8s Manifests to Pi
+
+On your **development machine**:
+
+```bash
+# Copy the k8s directory to the Pi
+scp -r /path/to/3rax/k8s raspberry@<pi-ip>:~/k8s
+```
+
+### 6. Configure
+
+On the **Pi**:
+
+```bash
+cd ~/k8s
+
+# Update database URL if using external PostgreSQL (skip if using in-cluster)
 nano secret.yaml
 
 # Update NATS URL if needed (already set to 192.168.50.118:4222)
 nano configmap.yaml
 ```
 
-### 6. Deploy
+### 7. Deploy
+
+On the **Pi**:
 
 ```bash
-# Deploy everything
-./deploy.sh
+cd ~/k8s
 
-# Or manually:
-kubectl apply -f namespace.yaml
-kubectl apply -f configmap.yaml
-kubectl apply -f secret.yaml
-kubectl apply -f pvc.yaml
-kubectl apply -f postgres.yaml  # Wait ~2 min for ready
-kubectl apply -f deployment.yaml
-kubectl apply -f service.yaml
+# Create namespace
+sudo kubectl apply -f namespace.yaml
+
+# Create config and secrets
+sudo kubectl apply -f configmap.yaml
+sudo kubectl apply -f secret.yaml
+
+# Create persistent storage
+sudo kubectl apply -f pvc.yaml
+
+# Deploy PostgreSQL (skip if using external database)
+sudo kubectl apply -f postgres.yaml
+
+# Wait for PostgreSQL to be ready (~1-2 min)
+sudo kubectl wait --for=condition=ready pod -l app=postgres -n 3rax --timeout=120s
+
+# Deploy backend
+sudo kubectl apply -f deployment.yaml
+
+# Create services
+sudo kubectl apply -f service.yaml
 ```
 
-### 7. Verify
+### 8. Run Database Migrations
+
+On the **Pi**, once the backend pod is running:
 
 ```bash
-# Check pods
-kubectl get pods -n 3rax
+# Wait for backend to start
+sudo kubectl wait --for=condition=ready pod -l app=backend -n 3rax --timeout=120s
 
-# Check logs
-kubectl logs -f deployment/backend -n 3rax
+# Run Prisma migrations from inside the pod
+sudo kubectl exec -it deployment/backend -n 3rax -- npx prisma migrate deploy
+```
 
-# Test health
+### 9. Verify
+
+```bash
+# Check all pods are running
+sudo kubectl get pods -n 3rax
+
+# Expected output:
+# NAME                        READY   STATUS    RESTARTS   AGE
+# postgres-xxxxx              1/1     Running   0          2m
+# backend-xxxxx               1/1     Running   0          1m
+
+# Check backend logs (should show NATS connection)
+sudo kubectl logs -f deployment/backend -n 3rax
+
+# Test health endpoint
 curl http://localhost:30001/health
 ```
 
-### 8. Access
+### 10. Access
 
 Your backend is now available at:
-- **NodePort**: `http://<pi-ip>:30001`
-- **ClusterIP**: Port-forward with `kubectl port-forward -n 3rax svc/backend-service 3001:3001`
+- **From the Pi**: `http://localhost:30001`
+- **From the network**: `http://<pi-ip>:30001`
+- **Health check**: `http://<pi-ip>:30001/health`
+- **API**: `http://<pi-ip>:30001/api/items`
 
 ## Add Worker Nodes
 
-On master, get token:
+On master Pi, get the join token:
 ```bash
 sudo cat /var/lib/rancher/k3s/server/node-token
 ```
 
-On worker Pi:
+On each worker Pi (after enabling cgroups and rebooting):
 ```bash
 curl -sfL https://get.k3s.io | K3S_URL=https://<master-ip>:6443 \
-  K3S_TOKEN=<token> sh -s - agent
+  K3S_TOKEN=<token> sh -s - agent --node-name rpi-worker-1
+```
+
+Verify on master:
+```bash
+sudo kubectl get nodes
 ```
 
 ## Common Commands
 
 ```bash
 # View all resources
-kubectl get all -n 3rax
+sudo kubectl get all -n 3rax
 
 # Scale replicas
-kubectl scale deployment backend -n 3rax --replicas=3
+sudo kubectl scale deployment backend -n 3rax --replicas=3
 
-# Update image
-kubectl rollout restart deployment/backend -n 3rax
+# Update image (after importing new image)
+sudo kubectl rollout restart deployment/backend -n 3rax
 
 # View logs
-kubectl logs -f deployment/backend -n 3rax
+sudo kubectl logs -f deployment/backend -n 3rax
 
 # Shell into pod
-kubectl exec -it deployment/backend -n 3rax -- sh
+sudo kubectl exec -it deployment/backend -n 3rax -- sh
 
 # Delete everything
-kubectl delete namespace 3rax
+sudo kubectl delete namespace 3rax
 ```
 
 ## Troubleshooting
 
-**Pods stuck in ImagePullBackOff**:
+**Pods stuck in ImagePullBackOff or ErrImagePull**:
 ```bash
+# Verify image exists in K3s
 sudo k3s ctr images ls | grep 3rax
-# If not found, re-import image
+# If not found, re-import the image
+```
+
+**Pods stuck in CrashLoopBackOff**:
+```bash
+# Check logs for error
+sudo kubectl logs deployment/backend -n 3rax
+# Common cause: database not ready or DATABASE_URL wrong
 ```
 
 **Database connection failed**:
 ```bash
-kubectl get pods -n 3rax
-kubectl logs deployment/postgres -n 3rax
+sudo kubectl get pods -n 3rax
+sudo kubectl logs deployment/postgres -n 3rax
 ```
 
 **NATS connection failed**:
 ```bash
 # Test from pod
-kubectl exec -it deployment/backend -n 3rax -- nc -zv 192.168.50.118 4222
+sudo kubectl exec -it deployment/backend -n 3rax -- nc -zv 192.168.50.118 4222
 ```
 
 ## Next Steps
 
-- See full guide: `K8S-DEPLOYMENT.md`
+- See full guide: `../K8S-DEPLOYMENT.md`
+- See troubleshooting: `TROUBLESHOOTING.md`
 - Add monitoring and logging
 - Configure ingress for domain access
 - Set up automated backups

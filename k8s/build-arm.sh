@@ -13,6 +13,16 @@ IMAGE_NAME="3rax-backend"
 IMAGE_TAG="${1:-latest}"
 FULL_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}"
 
+# Get the script's directory and navigate to project root
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$( cd "${SCRIPT_DIR}/.." && pwd )"
+
+# Change to project root
+cd "${PROJECT_ROOT}"
+
+echo "Building from: ${PROJECT_ROOT}"
+echo ""
+
 # Check if running on ARM or need to cross-compile
 ARCH=$(uname -m)
 echo "Current architecture: $ARCH"
@@ -26,7 +36,7 @@ else
     # Check if buildx is available
     if ! docker buildx version &> /dev/null; then
         echo "Error: docker buildx is required for cross-compilation"
-        echo "Install with: docker buildx create --use"
+        echo "Install with: docker buildx create --name arm-builder --use"
         exit 1
     fi
     

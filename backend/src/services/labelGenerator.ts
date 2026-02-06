@@ -1,5 +1,19 @@
 import * as QRCode from 'qrcode';
-import { createCanvas, loadImage } from 'canvas';
+
+// Lazy-load canvas - it requires native binaries that may not be available on all platforms
+let canvasModule: any = null;
+function getCanvas() {
+  if (!canvasModule) {
+    try {
+      canvasModule = require('canvas');
+    } catch (e) {
+      throw new Error(
+        'Canvas module is not available on this platform. Label generation requires the canvas native module.'
+      );
+    }
+  }
+  return canvasModule;
+}
 
 export interface LabelOptions {
   width: number; // inches
@@ -28,6 +42,8 @@ export class LabelGenerator {
     const labelWidthPx = Math.round(options.width * dpi);
     const labelHeightPx = Math.round(options.height * dpi);
     const qrSizePx = Math.round(qrCodeSize * dpi);
+
+    const { createCanvas, loadImage } = getCanvas();
 
     // Create canvas
     const canvas = createCanvas(labelWidthPx, labelHeightPx);
@@ -124,6 +140,8 @@ export class LabelGenerator {
     const startX = Math.round(marginHorizontalIn * dpi + (columnSpacingIn - labelWidthIn) / 2 * dpi);
     const startY = Math.round(marginVerticalIn * dpi + (rowSpacingIn - labelHeightIn) / 2 * dpi);
 
+    const { createCanvas, loadImage } = getCanvas();
+
     // Create canvas for full sheet
     const canvas = createCanvas(sheetWidthPx, sheetHeightPx);
     const ctx = canvas.getContext('2d');
@@ -158,7 +176,8 @@ export class LabelGenerator {
           dpi,
         });
 
-        const labelImg = await loadImage(labelImage);
+        const { loadImage: loadImg } = getCanvas();
+        const labelImg = await loadImg(labelImage);
 
         // Calculate position based on Avery template grid
         const x = startX + col * columnSpacingPx;

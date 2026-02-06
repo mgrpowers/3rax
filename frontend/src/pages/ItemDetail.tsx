@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { itemApi, Item } from '../services/api';
 import ScannerInput from '../components/ScannerInput';
 import QRCodeDisplay from '../components/QRCodeDisplay';
+import { useRealtimeEvents } from '../hooks/useRealtimeEvents';
 
 export default function ItemDetail() {
   const { id } = useParams<{ id: string }>();
@@ -18,6 +19,14 @@ export default function ItemDetail() {
     image: null as File | null,
   });
   const [saving, setSaving] = useState(false);
+
+  // Re-fetch item when inventory changes
+  useRealtimeEvents(
+    useCallback(() => {
+      if (id) loadItem();
+    }, [id]),
+    ['checkin', 'checkout']
+  );
 
   useEffect(() => {
     if (id) {

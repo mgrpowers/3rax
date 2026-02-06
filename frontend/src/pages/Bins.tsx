@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { binApi, Bin, Node, nodeApi } from '../services/api';
 import { Link } from 'react-router-dom';
+import { useRealtimeEvents } from '../hooks/useRealtimeEvents';
 
 interface NodeWithBins extends Node {
   bins?: Bin[];
@@ -12,6 +13,12 @@ export default function Bins() {
   const [editingBinId, setEditingBinId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ name: '', description: '' });
   const [deletingBinId, setDeletingBinId] = useState<string | null>(null);
+
+  // Re-fetch when inventory changes
+  useRealtimeEvents(
+    useCallback(() => loadData(), []),
+    ['checkin', 'checkout', 'bin_created', 'bin_deleted']
+  );
 
   useEffect(() => {
     loadData();
